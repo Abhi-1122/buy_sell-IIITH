@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import axios from 'axios';
 
 const Signup = () => {
@@ -8,8 +9,17 @@ const Signup = () => {
         email: '',
         contact: '',
         location: '',
-        password: ''
+        password: '',
+        captcha:'',
     });
+
+    const handleCaptcha = (token) => {
+        console.log('reCAPTCHA Token:', token);
+        setFormData({
+            ...formData,
+            captcha: token
+        });
+    };
 
     const handleChange = (e) => {
         setFormData({
@@ -18,22 +28,27 @@ const Signup = () => {
         });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const emailRegex = /^[a-zA-Z0-9._%+-@]+iiit\.ac\.in$/;
         if (!emailRegex.test(formData.email)) {
             alert('Please enter a valid IIIT email address.');
             return;
         }
+        if (!formData.captcha) {
+            alert('Please complete the CAPTCHA');
+            return;
+        }
 
         console.log('Backend URL:', import.meta.env.VITE_BACKEND_URL);
         try {
-            console.log('Form data:', formData);
-            const response = axios.post(`${import.meta.env.VITE_BACKEND_URL}/auth/register`, formData);
+            // console.log('Form data:', formData);
+            const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/auth/register`,formData);
             console.log(response.data);
             window.location.href = '/login';
         } catch (error) {
             console.error('There was an error signing up:', error);
+            alert(error.response.data.message);
         }
     };
 
@@ -125,6 +140,9 @@ const Signup = () => {
                             placeholder="Enter your password"
                             required
                         />
+                    </div>
+                    <div className="mb-4">
+                        <ReCAPTCHA sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY} onChange={handleCaptcha} />
                     </div>
                     
                     <button

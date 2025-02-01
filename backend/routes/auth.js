@@ -8,13 +8,21 @@ const xml2js = require('xml2js');
 
 router.post('/register', async (req, res) => {
     try {
-        const { firstname, lastname, email, contact, location, password } = req.body;
+        const { firstname, lastname, email, contact, location, password, captcha } = req.body;
+        const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+        // console.log(captcha)
+        const googleVerifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captcha}`;
+        const Response = await axios.post(googleVerifyUrl);
+        // console.log(Response.data);
+        if(!Response.data.success) {
+            return res.status(400).json({ message: 'Captcha verification failed' });
+        }
         // console.log(req.body)
         const existinguser = await User.findOne({ email });
         if (existinguser) {
-            console.log('User already exists')
+            // console.log('User already exists')
             // console.log(existinguser)
-            return res.status(400).json({ message: 'User already exists' });
+            return res.status(400).json({ message: 'Please Log In! User already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -56,6 +64,15 @@ router.get('/cas', async (req, res) => {
     // console.log('CAS login');
     const ticket = req.query.ticket;
     // console.log(ticket);
+    const generateRandomPassword = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+        let password = '';
+        for (let i = 0; i < 16; i++) {
+            const randomIndex = Math.floor(Math.random() * chars.length);
+            password += chars[randomIndex];
+        }
+        return password;
+    };
     const serviceURL = `${process.env.FRONTEND_URL}/auth/cas`;
     const casValidationURL = `https://login.iiit.ac.in/cas/serviceValidate?ticket=${encodeURIComponent(ticket)}&service=${encodeURIComponent(serviceURL)}`;
     const response = await axios.get(casValidationURL);
@@ -77,19 +94,19 @@ router.get('/cas', async (req, res) => {
             const existinguser = await User.findOne({ email });
             if (existinguser) {
                 const token = jwt.sign({ email: existinguser.email, id: existinguser._id }, process.env.JWT_SECRET);
-                return res.status(200).json({token });
+                return res.status(200).json({ token });
             }
             const firstname = result['cas:serviceResponse']['cas:authenticationSuccess']['cas:attributes']['cas:FirstName'];
             const lastname = result['cas:serviceResponse']['cas:authenticationSuccess']['cas:attributes']['cas:LastName'];
             const contact = 9999999999;
             const location = 'IIITH';
-            const password = 'VI&^tUIfVO*GO8fo8F*IG8oI7G'
+            const password = generateRandomPassword();
             const salt = await bcrypt.genSalt(10);
             const hashedpassword = await bcrypt.hash(password, salt);
             const newuser = new User({ firstname, lastname, email, contact, location, password: hashedpassword });
             const savedUser = await newuser.save();
             const token = jwt.sign({ email: savedUser.email, id: savedUser._id }, process.env.JWT_SECRET);
-            res.status(200).json({token });
+            res.status(200).json({ token });
         }
         else {
             res.status(400).send("Authentication Failed")

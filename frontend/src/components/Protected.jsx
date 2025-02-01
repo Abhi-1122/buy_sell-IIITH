@@ -10,7 +10,7 @@ const Protected = ({ children }) => {
             try {
                 const token = localStorage.getItem('token');
                 // console.log('Token:', token);
-                if (!token) {
+                if (token) {
                 document.cookie = `token=${token}; path=/;`;
                 }
                 const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/verify-token`, { withCredentials: true });
